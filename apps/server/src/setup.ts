@@ -1,5 +1,6 @@
 import { exec as exaca } from 'node:child_process';
 import * as fs from 'node:fs';
+import path from 'node:path';
 import { promisify } from 'node:util';
 import * as si from 'systeminformation';
 import { CONFIG } from './config';
@@ -128,10 +129,46 @@ export const setupOsVersion = async () => {
   }
 };
 
+export const syncDevMapper = async (): Promise<void> => {
+  if (!CONFIG.running_in_docker) return;
+  const hostMapperDir = '/mnt/host/dev/mapper';
+  const containerMapperDir = '/dev/mapper';
+  try {
+    if (fs.existsSync(hostMapperDir)) {
+      if (!fs.existsSync(containerMapperDir)) {
+        fs.mkdirSync(containerMapperDir, { recursive: true });
+      }
+      const entries = fs.readdirSync(hostMapperDir);
+      for (const entry of entries) {
+        if (entry === 'control') continue;
+        const target = path.join(containerMapperDir, entry);
+        const source = path.join(hostMapperDir, entry);
+        if (!fs.existsSync(target)) {
+          try {
+            const stat = fs.lstatSync(source);
+            if (stat.isSymbolicLink()) {
+              const linkTarget = fs.readlinkSync(source);
+              fs.symlinkSync(linkTarget, target);
+            } else {
+              fs.symlinkSync(source, target);
+            }
+          } catch (_e) {
+            // Ignore individual device link errors
+          }
+        }
+      }
+    }
+  } catch (_e) {
+    // Ignore directory sync errors
+  }
+};
+
 export const setupHostSpecific = async () => {
   if (PLATFORM_IS_WINDOWS) {
     console.log('Acquiring Windows Persistent Powershell');
     si.powerShellStart();
+  } else if (CONFIG.running_in_docker) {
+    await syncDevMapper();
   }
 };
 
