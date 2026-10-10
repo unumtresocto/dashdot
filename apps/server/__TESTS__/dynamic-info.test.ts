@@ -15,6 +15,7 @@ import {
   TEST_CASE_24,
   TEST_CASE_25,
   TEST_CASE_26,
+  TEST_CASE_27,
   type TestCase,
 } from './test-cases';
 
@@ -121,6 +122,13 @@ describe('Dynamic Info', () => {
         ...toStorageInp(TEST_CASE_26),
       ).getMappedLayout();
       expect(output).to.deep.equal(TEST_CASE_26.output);
+    });
+    it('Test Case 27 (Ubuntu LVM / and /home)', () => {
+      const output = new DynamicStorageMapper(
+        false,
+        ...toStorageInp(TEST_CASE_27),
+      ).getMappedLayout();
+      expect(output).to.deep.equal(TEST_CASE_27.output);
     });
   });
 });

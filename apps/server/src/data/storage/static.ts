@@ -1,7 +1,9 @@
 import { RaidType, type StorageInfo, sumUp } from '@dashdot/common';
 import * as si from 'systeminformation';
 import { CONFIG } from '../../config';
+import { syncDevMapper } from '../../setup';
 import { PLATFORM_IS_WINDOWS } from '../../utils';
+import { getEnhancedBlocks } from './blocks';
 
 type Block = si.Systeminformation.BlockDevicesData;
 type Disk = si.Systeminformation.DiskLayoutData;
@@ -20,10 +22,12 @@ const getDiskBlocks = (blocks: Block[]) =>
 const getDiskParts = (blocks: Block[], diskBlock: Block, hostWin32: boolean) =>
   blocks.filter(
     ({ name, device, type }) =>
-      type === 'part' &&
+      (type === 'part' || type === 'crypt' || type === 'lvm') &&
       (hostWin32
         ? diskBlock.device === device
-        : name.startsWith(diskBlock.name)),
+        : name.startsWith(diskBlock.name) ||
+          device === `/dev/${diskBlock.name}` ||
+          device === diskBlock.name),
   );
 
 const getNativeDisk = (
@@ -163,9 +167,12 @@ export const mapToStorageLayout = (
 };
 
 export default async (): Promise<StorageInfo> => {
+  if (CONFIG.running_in_docker) {
+    await syncDevMapper();
+  }
   const [disks, blocks, sizes] = await Promise.all([
     si.diskLayout(),
-    si.blockDevices(),
+    getEnhancedBlocks(),
     si.fsSize(),
   ]);
 
